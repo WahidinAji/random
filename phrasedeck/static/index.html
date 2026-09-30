@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phrase Deck</title>
+<style>
+:root{
+  --bg:#f6f5f1;--card:#ffffff;--text:#1d1d1b;--muted:#6b6a65;--line:#e4e2dc;
+  --accent:#2f5d50;--accent-soft:#e3ede9;--again:#b3412f;--hard:#b7791f;--good:#2f5d50;--easy:#2b5a8a;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#161615;--card:#211f1e;--text:#ecebe6;--muted:#9c9a93;--line:#34322f;
+  --accent:#7fb8a4;--accent-soft:#233a33;--again:#e0715e;--hard:#e0a85a;--good:#7fb8a4;--easy:#7fa9d8;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{max-width:680px;margin:0 auto;padding:20px 16px 8px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:20px;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.dot.ok{background:var(--good)}.dot.err{background:var(--again)}
+nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+nav button{border:0;background:none;color:var(--muted);padding:6px 12px;border-radius:7px;font:inherit;font-size:14px;cursor:pointer}
+nav button.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+main{max-width:680px;margin:0 auto;padding:8px 16px 48px}
+.stats{display:flex;gap:8px;margin:8px 0 16px}
+.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font-size:22px}
+.stat span{font-size:12px;color:var(--muted)}
+.flash{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 22px;min-height:260px;display:flex;flex-direction:column;justify-content:center;text-align:center}
+.front{font-size:24px;font-weight:600;line-height:1.35}
+.back{margin-top:20px;padding-top:20px;border-top:1px dashed var(--line)}
+.meaning{font-size:17px}
+.example{margin-top:10px;color:var(--muted);font-style:italic}
+.tag{display:inline-block;font-size:12px;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:99px;margin-bottom:12px}
+.speak{margin-top:12px;background:none;border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:4px 12px;font:inherit;font-size:13px;cursor:pointer}
+.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.actions button,.primary{border:0;border-radius:10px;padding:12px 6px;font:inherit;font-weight:600;color:#fff;cursor:pointer}
+.actions small{display:block;font-weight:400;opacity:.85;font-size:12px}
+.b-again{background:var(--again)}.b-hard{background:var(--hard)}.b-good{background:var(--good)}.b-easy{background:var(--easy)}
+@media (prefers-color-scheme:dark){.actions button,.primary{color:#111}}
+.primary{background:var(--accent);width:100%;margin-top:14px}
+button:disabled{opacity:.6;cursor:wait}
+.empty{color:var(--muted)}
+form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px}
+form h2{font-size:15px;margin:0}
+label{font-size:13px;color:var(--muted);display:grid;gap:4px}
+input,textarea,select{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+textarea{min-height:64px;resize:vertical}
+.row{display:flex;gap:8px}
+.ghost{background:none;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer}
+.list{margin-top:12px;display:grid;gap:8px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;gap:10px;align-items:flex-start}
+.item .txt{flex:1;min-width:0}
+.item .f{font-weight:600}
+.item .m{color:var(--muted);font-size:14px}
+.item .d{font-size:12px;color:var(--muted);margin-top:4px}
+.item .btns{display:flex;gap:4px;flex-shrink:0}
+.item .btns button{padding:4px 8px;font-size:13px}
+.hidden{display:none!important}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.note{font-size:13px;color:var(--muted);margin-top:16px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:10}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot" id="statusDot" title="Status server"></span>Phrase Deck</h1>
+  <nav>
+    <button data-view="study" class="active">Belajar</button>
+    <button data-view="cards">Kartu</button>
+  </nav>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat"><b id="sDue">–</b><span>Jatuh tempo</span></div>
+    <div class="stat"><b id="sNew">–</b><span>Baru</span></div>
+    <div class="stat"><b id="sTotal">–</b><span>Total kartu</span></div>
+  </div>
+
+  <section id="view-study">
+    <div class="flash" id="flash"><p class="empty">Memuat kartu…</p></div>
+    <div id="controls"></div>
+  </section>
+
+  <section id="view-cards" class="hidden">
+    <form id="form">
+      <h2 id="formTitle">Tambah kartu baru</h2>
+      <input type="hidden" id="fId">
+      <label>Frasa (English)<input id="fFront" required maxlength="2000" placeholder="Just to follow up on…"></label>
+      <label>Arti / penjelasan<textarea id="fBack" required maxlength="2000" placeholder="Sekadar menindaklanjuti…"></textarea></label>
+      <label>Contoh kalimat<textarea id="fEx" maxlength="2000" placeholder="Just to follow up on my email from Monday…"></textarea></label>
+      <label>Kategori<input id="fTag" list="tags" maxlength="100" placeholder="Email, Meeting, …"></label>
+      <datalist id="tags"></datalist>
+      <div class="row">
+        <button class="primary" type="submit" id="fSubmit" style="margin-top:0">Tambah kartu</button>
+        <button class="ghost hidden" type="button" id="fCancel">Batal</button>
+      </div>
+    </form>
+
+    <div class="toolbar">
+      <input id="search" placeholder="Cari frasa…" style="flex:1;min-width:160px">
+      <select id="filterTag" style="width:auto"><option value="">Semua kategori</option></select>
+    </div>
+    <div class="list" id="list"></div>
+
+    <div class="toolbar">
+      <button class="ghost" id="exportBtn">Export JSON</button>
+      <button class="ghost" id="importBtn">Import JSON</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+    </div>
+    <p class="note">Data tersimpan di server (SQLite), jadi progres sama di semua perangkat. Export tetap berguna buat backup.</p>
+  </section>
+</main>
+
+<div class="toast hidden" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const DAY = 86400000;
+
+let cards = [];
+let current = null;
+let revealed = false;
+let busy = false;
+
+/* ---------- API ---------- */
+async function api(method, path, body){
+  const opt = {method, headers:{}, credentials:'same-origin'};
+  if(body !== undefined){
+    opt.headers['Content-Type'] = 'application/json';
+    opt.body = JSON.stringify(body);
+  }
+  let res;
+  try{ res = await fetch(path, opt); }
+  catch(e){ setStatus(false); throw new Error('Tidak bisa terhubung ke server'); }
+  const data = await res.json().catch(()=>null);
+  if(!res.ok){
+    setStatus(res.status < 500);
+    throw new Error((data && data.error) || ('Error '+res.status));
+  }
+  setStatus(true);
+  return data;
+}
+function setStatus(ok){
+  $('statusDot').className = 'dot ' + (ok ? 'ok' : 'err');
+  $('statusDot').title = ok ? 'Tersambung ke server' : 'Gagal terhubung ke server';
+}
+let toastTimer;
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.add('hidden'), 3000);
+}
+function replaceLocal(card){
+  const i = cards.findIndex(c=>c.id===card.id);
+  if(i>=0) cards[i] = card; else cards.push(card);
+  if(current && current.id===card.id) current = card;
+}
+
+async function refresh(){
+  try{
+    cards = await api('GET','/api/cards');
+    if(current) current = cards.find(c=>c.id===current.id) || null;
+    renderStats();
+    if(!$('view-cards').classList.contains('hidden')) renderList();
+    if(!current || current.due > Date.now()) nextCard(); else renderStudy();
+  }catch(e){
+    toast(e.message);
+    if(!cards.length) $('flash').innerHTML = `<p class="empty">${esc(e.message)}. Cek server lalu muat ulang halaman.</p>`;
+  }
+}
+
+/* ---------- Spaced repetition (SM-2 style) ---------- */
+function schedule(c, grade){
+  let {ease, interval, reps, lapses} = c, due;
+  const now = Date.now();
+  if(grade==='again'){
+    ease = Math.max(1.3, ease-0.2); reps = 0; interval = 0; lapses++;
+    due = now + 10*60*1000;
+  }else if(grade==='hard'){
+    ease = Math.max(1.3, ease-0.15);
+    interval = reps===0 ? 1 : Math.max(1, interval*1.2);
+    reps++; due = now + interval*DAY;
+  }else if(grade==='good'){
+    interval = reps===0 ? 1 : reps===1 ? 3 : interval*ease;
+    reps++; due = now + interval*DAY;
+  }else{
+    interval = reps===0 ? 4 : Math.max(interval*ease*1.3, 4);
+    ease += 0.15; reps++; due = now + interval*DAY;
+  }
+  interval = Math.round(interval*10)/10;
+  ease = Math.round(ease*100)/100;
+  return {ease, interval, reps, lapses, due:Math.round(due)};
+}
+function previewLabel(c, g){
+  return g==='again' ? '10 mnt' : fmtDays(schedule(c,g).interval);
+}
+function fmtDays(d){
+  if(d<1) return '<1 hari';
+  if(d<30) return Math.round(d)+' hari';
+  if(d<365) return Math.round(d/30)+' bln';
+  return (d/365).toFixed(1)+' thn';
+}
+
+/* ---------- Study view ---------- */
+function nextCard(skipId){
+  const now = Date.now();
+  const due = cards.filter(c=>c.due<=now).sort((a,b)=>a.due-b.due);
+  current = due.find(c=>c.id!==skipId) || due[0] || null;
+  revealed = false;
+  renderStudy();
+}
+function renderStudy(){
+  const flash = $('flash'), ctr = $('controls');
+  if(!current){
+    const upcoming = cards.filter(c=>c.due>Date.now()).sort((a,b)=>a.due-b.due)[0];
+    flash.innerHTML = `<div class="front">Selesai untuk sekarang 🎉</div>
+      <p class="empty">${upcoming ? 'Kartu berikutnya jatuh tempo '+new Date(upcoming.due).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})+'.' : 'Belum ada kartu. Tambah di tab Kartu.'}</p>`;
+    ctr.innerHTML = '';
+    return;
+  }
+  const c = current;
+  flash.innerHTML = `
+    ${c.tag?`<div><span class="tag">${esc(c.tag)}</span></div>`:''}
+    <div class="front">${esc(c.front)}</div>
+    <div><button class="speak" data-say="front">🔊 Dengar</button> <button class="speak" data-say="front" data-slow="1">🐢 Pelan</button></div>
+    ${revealed?`<div class="back">
+      <div class="meaning">${esc(c.back)}</div>
+      ${c.example?`<div class="example">“${esc(c.example)}”</div>
+      <div><button class="speak" data-say="example">🔊 Contoh</button> <button class="speak" data-say="example" data-slow="1">🐢 Pelan</button></div>`:''}
+    </div>`:''}`;
+  flash.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>speak(current[b.dataset.say], !!b.dataset.slow));
+  if(!revealed){
+    ctr.innerHTML = `<button class="primary" id="revealBtn">Tampilkan jawaban</button>`;
+    $('revealBtn').onclick = reveal;
+  }else{
+    const labels = {again:'Lupa',hard:'Susah',good:'Bisa',easy:'Gampang'};
+    ctr.innerHTML = `<div class="actions">${Object.keys(labels).map(g=>
+      `<button class="b-${g}" data-g="${g}">${labels[g]}<small>${previewLabel(c,g)}</small></button>`).join('')}</div>`;
+    ctr.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>rate(b.dataset.g));
+  }
+}
+function reveal(){revealed=true;renderStudy()}
+async function rate(g){
+  if(busy || !current) return;
+  busy = true;
+  const c = current;
+  const update = schedule(c, g);
+  const prev = {...c};
+  Object.assign(c, update);           // optimistic update
+  renderStats();
+  nextCard(c.id);
+  try{
+    replaceLocal(await api('PUT','/api/cards/'+encodeURIComponent(c.id), update));
+  }catch(e){
+    Object.assign(c, prev);           // roll back
+    toast('Gagal menyimpan: '+e.message);
+    current = c; revealed = true; renderStudy();
+  }finally{
+    busy = false; renderStats();
+  }
+}
+/* ---------- Audio ---------- */
+// Server voice (Piper) when available; browser voice as fallback.
+let serverTTS = false;
+const audioCache = new Map();   // text -> object URL
+let player = null;
+async function loadConfig(){
+  try{ serverTTS = !!(await api('GET','/api/config')).tts; }catch(e){ serverTTS = false; }
+}
+async function speak(t, slow){
+  if(!t) return;
+  if(player){ player.pause(); }
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  if(serverTTS){
+    try{
+      let url = audioCache.get(t);
+      if(!url){
+        const res = await fetch('/api/tts?text='+encodeURIComponent(t), {credentials:'same-origin'});
+        if(!res.ok) throw new Error('tts '+res.status);
+        url = URL.createObjectURL(await res.blob());
+        audioCache.set(t, url);
+      }
+      player = new Audio(url);
+      player.playbackRate = slow ? 0.75 : 1;
+      player.preservesPitch = true;
+      await player.play();
+      return;
+    }catch(e){ /* fall through to browser voice */ }
+  }
+  if(!('speechSynthesis' in window)){ toast('Browser ini tidak bisa membacakan teks'); return; }
+  const u = new SpeechSynthesisUtterance(t.replace(/…/g,''));
+  u.lang='en-US'; u.rate = slow ? 0.7 : 0.95;
+  speechSynthesis.speak(u);
+}
+document.addEventListener('keydown',e=>{
+  if($('view-study').classList.contains('hidden')||!current) return;
+  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  if(e.code==='Space'&&!revealed){e.preventDefault();reveal()}
+  else if(revealed&&['1','2','3','4'].includes(e.key)) rate(['again','hard','good','easy'][+e.key-1]);
+});
+
+/* ---------- Cards view ---------- */
+function renderList(){
+  const q = $('search').value.toLowerCase();
+  const t = $('filterTag').value;
+  const items = cards.filter(c=>(!t||c.tag===t)&&(c.front+' '+c.back+' '+c.example).toLowerCase().includes(q))
+                     .sort((a,b)=>b.created-a.created);
+  $('list').innerHTML = items.map(c=>`
+    <div class="item">
+      <div class="txt">
+        <div class="f">${esc(c.front)}</div>
+        <div class="m">${esc(c.back)}</div>
+        <div class="d">${c.tag?esc(c.tag)+' · ':''}${c.reps===0&&c.lapses===0?'Baru':'Review berikutnya: '+new Date(c.due).toLocaleDateString('id-ID',{day:'numeric',month:'short'})}</div>
+      </div>
+      <div class="btns">
+        <button class="ghost" data-edit="${esc(c.id)}">Edit</button>
+        <button class="ghost" data-del="${esc(c.id)}">Hapus</button>
+      </div>
+    </div>`).join('') || '<p class="empty">Tidak ada kartu.</p>';
+  $('list').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editCard(b.dataset.edit));
+  $('list').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delCard(b.dataset.del));
+  renderTags();
+}
+function renderTags(){
+  const tags = [...new Set(cards.map(c=>c.tag).filter(Boolean))].sort();
+  $('tags').innerHTML = tags.map(t=>`<option value="${esc(t)}">`).join('');
+  const sel = $('filterTag'), v = sel.value;
+  sel.innerHTML = '<option value="">Semua kategori</option>'+tags.map(t=>`<option value="${esc(t)}" ${t===v?'selected':''}>${esc(t)}</option>`).join('');
+}
+function editCard(id){
+  const c = cards.find(x=>x.id===id); if(!c) return;
+  $('fId').value=c.id; $('fFront').value=c.front; $('fBack').value=c.back; $('fEx').value=c.example; $('fTag').value=c.tag;
+  $('formTitle').textContent='Edit kartu';
+  $('fSubmit').textContent='Simpan perubahan'; $('fCancel').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+  $('fFront').focus();
+}
+function resetForm(){
+  $('form').reset(); $('fId').value='';
+  $('formTitle').textContent='Tambah kartu baru';
+  $('fSubmit').textContent='Tambah kartu'; $('fCancel').classList.add('hidden');
+}
+async function delCard(id){
+  const c = cards.find(x=>x.id===id); if(!c) return;
+  if(!confirm(`Hapus kartu "${c.front}"?`)) return;
+  try{
+    await api('DELETE','/api/cards/'+encodeURIComponent(id));
+    cards = cards.filter(x=>x.id!==id);
+    if(current&&current.id===id) nextCard();
+    if($('fId').value===id) resetForm();
+    renderStats(); renderList(); toast('Kartu dihapus');
+  }catch(e){ toast('Gagal menghapus: '+e.message); }
+}
+$('form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const payload = {front:$('fFront').value.trim(), back:$('fBack').value.trim(), example:$('fEx').value.trim(), tag:$('fTag').value.trim()};
+  if(!payload.front||!payload.back) return;
+  const id = $('fId').value;
+  $('fSubmit').disabled = true;
+  try{
+    const card = id ? await api('PUT','/api/cards/'+encodeURIComponent(id), payload)
+                    : await api('POST','/api/cards', payload);
+    replaceLocal(card);
+    resetForm(); renderStats(); renderList();
+    toast(id ? 'Perubahan disimpan' : 'Kartu ditambahkan');
+    if(!current) nextCard();
+  }catch(err){ toast('Gagal menyimpan: '+err.message); }
+  finally{ $('fSubmit').disabled = false; }
+});
+$('fCancel').onclick = resetForm;
+$('search').oninput = renderList;
+$('filterTag').onchange = renderList;
+
+$('exportBtn').onclick = ()=>{
+  const blob = new Blob([JSON.stringify(cards,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'phrase-deck-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+};
+$('importBtn').onclick = ()=>$('importFile').click();
+$('importFile').onchange = async e=>{
+  const f = e.target.files[0]; e.target.value=''; if(!f) return;
+  let data;
+  try{ data = JSON.parse(await f.text()); if(!Array.isArray(data)) throw 0; }
+  catch(err){ toast('File tidak valid.'); return; }
+  if(!confirm(`Import ${data.length} kartu? Semua kartu di server akan diganti.`)) return;
+  try{
+    cards = await api('POST','/api/import', data);
+    current = null; renderStats(); renderList(); nextCard();
+    toast(`${cards.length} kartu diimport`);
+  }catch(err){ toast('Import gagal: '+err.message); }
+};
+
+/* ---------- Shared ---------- */
+function renderStats(){
+  const now = Date.now();
+  $('sDue').textContent = cards.filter(c=>c.due<=now&&(c.reps>0||c.lapses>0)).length;
+  $('sNew').textContent = cards.filter(c=>c.reps===0&&c.lapses===0).length;
+  $('sTotal').textContent = cards.length;
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));
+  $('view-study').classList.toggle('hidden',b.dataset.view!=='study');
+  $('view-cards').classList.toggle('hidden',b.dataset.view!=='cards');
+  if(b.dataset.view==='cards') renderList(); else if(!revealed) nextCard();
+});
+
+// Re-sync when you come back to the tab (e.g. after studying on another device)
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && !busy && !revealed) refresh(); });
+
+loadConfig().then(refresh);
+</script>
+</body>
+</html>

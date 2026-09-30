@@ -1,0 +1,12 @@
+[
+  {
+    "name": "kata-bot",
+    "type": "sqlite",
+    "url": "db/kata-bot/kata-bot.sqlite3"
+  },
+  {
+    "name": "tiny-link",
+    "type": "sqlite",
+    "url": "db/tiny-link/links.sqlite"
+  }
+]

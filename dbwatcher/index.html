@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>dbwatcher</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+    body { margin: 0; background: #0b1020; color: #e5e7eb; }
+    header { padding: 18px 22px; border-bottom: 1px solid #27324a; background: #111827; }
+    h1 { margin: 0; font-size: 22px; }
+    main { padding: 18px 22px; display: grid; gap: 14px; }
+    .card { background: #111827; border: 1px solid #27324a; border-radius: 12px; padding: 14px; }
+    button, select { background: #1f2937; color: #e5e7eb; border: 1px solid #374151; border-radius: 8px; padding: 9px 11px; }
+    button { cursor: pointer; }
+    button:hover { background: #374151; }
+    textarea { width: 100%; min-height: 110px; box-sizing: border-box; background: #050816; color: #e5e7eb; border: 1px solid #374151; border-radius: 8px; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th, td { border: 1px solid #27324a; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #1f2937; position: sticky; top: 0; }
+    .table-wrap { overflow: auto; max-height: 65vh; }
+    .muted { color: #9ca3af; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .error { color: #fca5a5; white-space: pre-wrap; }
+    .pill { font-size: 12px; border: 1px solid #374151; border-radius: 999px; padding: 3px 8px; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>dbwatcher</h1>
+    <div class="muted">Local multi-SQLite database viewer</div>
+  </header>
+  <main>
+    <section class="card row">
+      <label>Database <select id="dbSelect"></select></label>
+      <button id="reloadBtn">Load / reload DB</button>
+      <label>Table <select id="tableSelect"></select></label>
+      <button id="viewBtn">View table</button>
+      <span id="status" class="muted"></span>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content: space-between">
+        <div class="muted">Custom query <span class="pill">read-only in browser</span></div>
+        <div id="currentDb" class="muted"></div>
+      </div>
+      <textarea id="sql">SELECT * FROM users LIMIT 100;</textarea>
+      <div class="row" style="margin-top: 8px">
+        <button id="runBtn">Run query</button>
+        <button id="schemaBtn">Show schema</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="error" class="error"></div>
+      <div id="result" class="table-wrap"></div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <script>
+    let SQL, db, databases = [], currentDatabase;
+    const $ = (id) => document.getElementById(id);
+
+    function setStatus(msg) { $('status').textContent = msg; }
+    function setError(msg) { $('error').textContent = msg || ''; }
+    function escapeHtml(v) {
+      return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    }
+    function render(rows) {
+      if (!rows.length) { $('result').innerHTML = '<div class="muted">No rows returned.</div>'; return; }
+      const r = rows[0];
+      let html = '<table><thead><tr>' + r.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('') + '</tr></thead><tbody>';
+      for (const row of r.values) html += '<tr>' + row.map(v => `<td>${escapeHtml(v)}</td>`).join('') + '</tr>';
+      html += '</tbody></table>';
+      $('result').innerHTML = html;
+    }
+    function run(sql) {
+      setError('');
+      if (!db) return setError('No database loaded yet.');
+      try { render(db.exec(sql)); }
+      catch (e) { setError(e.message || String(e)); }
+    }
+    function showSchema() {
+      run("SELECT name, sql FROM sqlite_master WHERE type IN ('table','view','index','trigger') ORDER BY type, name;");
+    }
+    async function loadDatabaseList() {
+      databases = await fetch('./databases.json?ts=' + Date.now(), { cache: 'no-store' }).then(r => {
+        if (!r.ok) throw new Error(`Cannot fetch databases.json: HTTP ${r.status}`);
+        return r.json();
+      });
+      databases = databases.filter(d => d.type === 'sqlite' && d.url && d.name);
+      $('dbSelect').innerHTML = databases.map((d, i) => `<option value="${i}">${escapeHtml(d.name)}</option>`).join('');
+      if (!databases.length) throw new Error('No SQLite databases configured in databases.json');
+    }
+    async function loadDb() {
+      setError(''); setStatus('loading...'); $('result').innerHTML = '';
+      currentDatabase = databases[Number($('dbSelect').value || 0)];
+      $('currentDb').textContent = currentDatabase ? currentDatabase.url : '';
+      SQL ||= await initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+      if (db) db.close();
+      const buf = await fetch(currentDatabase.url + '?ts=' + Date.now(), { cache: 'no-store' }).then(r => {
+        if (!r.ok) throw new Error(`Cannot fetch database ${currentDatabase.name}: HTTP ${r.status}`);
+        return r.arrayBuffer();
+      });
+      db = new SQL.Database(new Uint8Array(buf));
+      const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")[0]?.values.map(r => r[0]) || [];
+      $('tableSelect').innerHTML = tables.map(t => `<option>${escapeHtml(t)}</option>`).join('');
+      setStatus(`${currentDatabase.name}: loaded ${Math.round(buf.byteLength / 1024)} KB, ${tables.length} tables`);
+      showSchema();
+    }
+
+    $('dbSelect').onchange = loadDb;
+    $('reloadBtn').onclick = loadDb;
+    $('runBtn').onclick = () => run($('sql').value);
+    $('schemaBtn').onclick = showSchema;
+    $('viewBtn').onclick = () => {
+      const t = $('tableSelect').value.replace(/"/g, '""');
+      $('sql').value = `SELECT * FROM "${t}" LIMIT 100;`;
+      run($('sql').value);
+    };
+
+    (async () => {
+      await loadDatabaseList();
+      await loadDb();
+    })().catch(e => { setStatus(''); setError(e.message || String(e)); });
+  </script>
+</body>
+</html>

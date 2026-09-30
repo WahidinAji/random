@@ -1,0 +1,14 @@
+services:
+  dbwatcher:
+    image: nginx:alpine
+    container_name: dbwatcher
+    restart: unless-stopped
+    ports:
+      - "8765:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./databases.json:/usr/share/nginx/html/databases.json:ro
+      # SQLite database mounts. Add more app database folders here,
+      # then add their file URL to databases.json.
+      - /home/duniya/ghcr-deploymenet/data:/usr/share/nginx/html/db/kata-bot:ro
+      - /home/duniya/url-shortener/data:/usr/share/nginx/html/db/tiny-link:ro

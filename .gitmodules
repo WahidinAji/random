@@ -1,0 +1,6 @@
+[submodule "family-pool"]
+	path = family-pool
+	url = https://github.com/WahidinAji/family-pool.git
+[submodule "my-profile"]
+	path = my-profile
+	url = https://github.com/WahidinAji/my-profile.git

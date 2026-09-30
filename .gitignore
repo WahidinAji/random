@@ -1,0 +1,17 @@
+# Local runtime data, not project source
+/phrasedeck/data/
+/phrasedeck/voices/
+/phrasedeck/__pycache__/
+*.pyc
+
+# Secrets and machine-local configuration
+.env
+.env.*
+!.env.example
+
+# Common generated files in future small projects
+**/node_modules/
+**/dist/
+**/build/
+**/.venv/
+**/.DS_Store
